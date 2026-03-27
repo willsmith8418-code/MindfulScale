@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindfulScale</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232734;
+    --border: #2e3345;
+    --text: #e4e6ef;
+    --text-dim: #8b8fa3;
+    --accent: #6c8cff;
+    --accent-dim: rgba(108, 140, 255, 0.15);
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #facc15;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  h1 span { color: var(--accent); }
+
+  /* Entry form */
+  .entry-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .entry-form input {
+    flex: 1;
+    padding: 0.65rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .entry-form input:focus { border-color: var(--accent); }
+  .entry-form button {
+    padding: 0.65rem 1.25rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .entry-form button:hover { opacity: 0.85; }
+
+  /* Goal row */
+  .goal-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .goal-row label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .goal-row input {
+    width: 120px;
+    padding: 0.5rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+  }
+  .goal-row input:focus { border-color: var(--accent); }
+  .goal-row .goal-clear {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem 0.4rem;
+    transition: color 0.15s;
+  }
+  .goal-row .goal-clear:hover { color: var(--red); }
+
+  /* Dashboard */
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+  }
+  .stat-card .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+  }
+  .stat-card .value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .stat-card .value.positive { color: var(--red); }
+  .stat-card .value.negative { color: var(--green); }
+  .stat-card .value.warn { color: var(--yellow); }
+
+  /* Chart */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .chart-wrap .chart-container { position: relative; height: 280px; }
+  .chart-wrap canvas { width: 100% !important; }
+
+  /* Timeframe tabs */
+  .timeframe-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .timeframe-tabs button {
+    padding: 0.35rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .timeframe-tabs button:hover { border-color: var(--accent); color: var(--text); }
+  .timeframe-tabs button.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Entry list header row */
+  .entries-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  .entries-header {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .export-btn {
+    padding: 0.35rem 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .export-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  .entry-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .entry-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+  }
+  .entry-row .date { color: var(--text-dim); min-width: 100px; }
+  .entry-row .weight { font-weight: 500; flex: 1; text-align: right; margin-right: 1rem; }
+  .entry-row .trend-val { color: var(--accent); flex: 1; text-align: right; margin-right: 1rem; font-size: 0.85rem; }
+  .entry-row .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 0.3rem;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+  .entry-row .delete-btn:hover { color: var(--red); }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 3rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  /* Weekly averages */
+  .weekly-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .weekly-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 0.5rem;
+    transition: color 0.15s;
+  }
+  .weekly-toggle:hover { color: var(--text); }
+  .weekly-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+  .weekly-toggle .arrow.open { transform: rotate(90deg); }
+
+  .weekly-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .weekly-table th {
+    text-align: left;
+    padding: 0.55rem 0.65rem;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface2);
+  }
+  .weekly-table td {
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .weekly-table tr:last-child td { border-bottom: none; }
+  .weekly-table .change.positive { color: var(--red); }
+  .weekly-table .change.negative { color: var(--green); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Mindful<span>Scale</span></h1>
+
+  <form class="entry-form" id="entryForm">
+    <input type="date" id="dateInput" required>
+    <input type="number" id="weightInput" step="0.1" min="50" max="999" placeholder="Weight (lbs)" required>
+    <button type="submit">Log</button>
+  </form>
+
+  <div class="goal-row">
+    <label for="goalInput">Goal weight</label>
+    <input type="number" id="goalInput" step="0.1" min="50" max="999" placeholder="lbs">
+    <button class="goal-clear" id="goalClear" title="Clear goal">&times;</button>
+  </div>
+
+  <div class="dashboard" id="dashboard"></div>
+
+  <div class="chart-wrap">
+    <div class="timeframe-tabs" id="timeframeTabs">
+      <button data-days="7">7D</button>
+      <button data-days="30">30D</button>
+      <button data-days="90">90D</button>
+      <button data-days="0" class="active">All</button>
+    </div>
+    <div class="chart-container"><canvas id="chart"></canvas></div>
+  </div>
+
+  <div class="entries-toolbar">
+    <div class="entries-header">Entries</div>
+    <button class="export-btn" id="exportBtn">Export CSV</button>
+  </div>
+  <div class="entry-list" id="entryList"></div>
+
+  <div class="weekly-section" id="weeklySection">
+    <button class="weekly-toggle" id="weeklyToggle">
+      <span class="arrow">&#9654;</span> Weekly Averages
+    </button>
+    <div id="weeklyContent" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'mindfulscale_entries';
+const GOAL_KEY = 'mindfulscale_goal';
+const EMA_ALPHA = 0.1;
+
+let entries = loadEntries();
+let goalWeight = loadGoal();
+let chart = null;
+let chartTimeframeDays = 0; // 0 = all
+
+// --- Data ---
+function loadEntries() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveEntries() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+function loadGoal() {
+  const v = parseFloat(localStorage.getItem(GOAL_KEY));
+  return isNaN(v) ? null : v;
+}
+function saveGoal(v) {
+  if (v === null) localStorage.removeItem(GOAL_KEY);
+  else localStorage.setItem(GOAL_KEY, String(v));
+}
+
+function addEntry(date, weight) {
+  entries = entries.filter(e => e.date !== date);
+  entries.push({ date, weight });
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries();
+  render();
+}
+function deleteEntry(date) {
+  entries = entries.filter(e => e.date !== date);
+  saveEntries();
+  render();
+}
+
+// --- Trend (EMA over full dataset, always computed from start) ---
+function computeTrend(data) {
+  if (data.length === 0) return [];
+  const trend = [data[0].weight];
+  for (let i = 1; i < data.length; i++) {
+    trend.push(EMA_ALPHA * data[i].weight + (1 - EMA_ALPHA) * trend[i - 1]);
+  }
+  return trend;
+}
+
+// --- Filtered view for chart ---
+function getFilteredRange(days) {
+  if (days === 0 || entries.length === 0) return { startIdx: 0, endIdx: entries.length };
+  const lastDate = new Date(entries[entries.length - 1].date);
+  const cutoff = new Date(lastDate);
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  let startIdx = 0;
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i].date >= cutoffStr) { startIdx = i; break; }
+  }
+  return { startIdx, endIdx: entries.length };
+}
+
+// --- Dashboard ---
+function renderDashboard(trendValues) {
+  const el = document.getElementById('dashboard');
+  if (entries.length === 0) { el.innerHTML = ''; return; }
+
+  const current = trendValues[trendValues.length - 1];
+  const start = trendValues[0];
+  const totalChange = current - start;
+  const lowest = Math.min(...trendValues);
+
+  const today = new Date(entries[entries.length - 1].date);
+  const sevenAgo = new Date(today);
+  sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const sevenAgoStr = sevenAgo.toISOString().slice(0, 10);
+  let weekChange = null;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (entries[i].date <= sevenAgoStr) { weekChange = current - trendValues[i]; break; }
+  }
+
+  // Compute trend rate (lbs/day) from recent data
+  const lookback = Math.min(7, trendValues.length - 1);
+  const oldTrend = trendValues[trendValues.length - 1 - lookback];
+  const oldDate = new Date(entries[entries.length - 1 - lookback].date);
+  const newDate = new Date(entries[entries.length - 1].date);
+  const daysDiff = (newDate - oldDate) / 86400000;
+  const ratePerDay = daysDiff > 0 ? (current - oldTrend) / daysDiff : 0;
+  const ratePerWeek = ratePerDay * 7;
+
+  // Projected goal date
+  let projectedHtml = '';
+  if (goalWeight !== null && entries.length >= 2) {
+    const remaining = goalWeight - current;
+    let projValue = '';
+    let projClass = '';
+    if (Math.abs(ratePerDay) < 0.001) {
+      projValue = 'Holding steady';
+      projClass = 'warn';
+    } else if ((remaining < 0 && ratePerDay > 0) || (remaining > 0 && ratePerDay < 0)) {
+      projValue = 'Not on track';
+      projClass = 'warn';
+    } else {
+      const daysToGoal = Math.abs(remaining / ratePerDay);
+      const goalDate = new Date(newDate);
+      goalDate.setDate(goalDate.getDate() + Math.ceil(daysToGoal));
+      projValue = formatDate(goalDate.toISOString().slice(0, 10));
+      projClass = 'negative';
+    }
+    projectedHtml = `
+      <div class="stat-card">
+        <div class="label">Goal ETA</div>
+        <div class="value ${projClass}">${projValue}</div>
+      </div>`;
+  }
+
+  const fmt = (v) => v.toFixed(1);
+  const sign = (v) => v > 0 ? '+' : '';
+  const cls = (v) => v > 0.05 ? 'positive' : v < -0.05 ? 'negative' : '';
+
+  // lbs/week card (only show with 2+ entries)
+  let rateHtml = '';
+  if (entries.length >= 2 && daysDiff > 0) {
+    rateHtml = `
+      <div class="stat-card">
+        <div class="label">Rate</div>
+        <div class="value ${cls(ratePerWeek)}">${sign(ratePerWeek)}${fmt(ratePerWeek)}/wk</div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="label">Trend Weight</div>
+      <div class="value">${fmt(current)} lbs</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total Change</div>
+      <div class="value ${cls(totalChange)}">${entries.length > 1 ? sign(totalChange) + fmt(totalChange) + ' lbs' : '—'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">7-Day Change</div>
+      <div class="value ${weekChange !== null ? cls(weekChange) : ''}">${weekChange !== null ? sign(weekChange) + fmt(weekChange) + ' lbs' : '—'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Lowest Trend</div>
+      <div class="value">${fmt(lowest)} lbs</div>
+    </div>
+    ${rateHtml}
+    ${projectedHtml}`;
+}
+
+// --- Chart ---
+function renderChart(trendValues) {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const { startIdx, endIdx } = getFilteredRange(chartTimeframeDays);
+  const labels = entries.slice(startIdx, endIdx).map(e => e.date);
+  const rawData = entries.slice(startIdx, endIdx).map(e => e.weight);
+  const trendData = trendValues.slice(startIdx, endIdx);
+
+  // Goal annotation
+  const annotations = {};
+  if (goalWeight !== null) {
+    annotations.goalLine = {
+      type: 'line',
+      yMin: goalWeight,
+      yMax: goalWeight,
+      borderColor: 'rgba(250, 204, 21, 0.5)',
+      borderWidth: 2,
+      borderDash: [6, 4],
+      label: {
+        display: true,
+        content: `Goal: ${goalWeight} lbs`,
+        position: 'start',
+        color: '#facc15',
+        backgroundColor: 'rgba(26, 29, 39, 0.85)',
+        font: { size: 11 },
+        padding: 4
+      }
+    };
+  }
+
+  if (chart) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = rawData;
+    chart.data.datasets[1].data = trendData;
+    chart.options.plugins.annotation.annotations = annotations;
+    chart.update();
+    return;
+  }
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Raw Weight',
+          data: rawData,
+          borderColor: 'rgba(255,255,255,0.2)',
+          backgroundColor: 'rgba(255,255,255,0.5)',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 1,
+          showLine: false,
+          order: 2,
+        },
+        {
+          label: 'Trend (EMA)',
+          data: trendData,
+          borderColor: '#6c8cff',
+          backgroundColor: 'rgba(108,140,255,0.08)',
+          pointRadius: 0,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.3,
+          order: 1,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#8b8fa3', usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } }
+        },
+        tooltip: {
+          backgroundColor: '#232734',
+          titleColor: '#e4e6ef',
+          bodyColor: '#e4e6ef',
+          borderColor: '#2e3345',
+          borderWidth: 1,
+          callbacks: {
+            label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} lbs`
+          }
+        },
+        annotation: { annotations }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b8fa3', maxRotation: 45, font: { size: 11 } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: { color: '#8b8fa3', font: { size: 11 }, callback: v => v + ' lbs' },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// --- Entry list ---
+function renderEntryList(trendValues) {
+  const el = document.getElementById('entryList');
+  if (entries.length === 0) {
+    el.innerHTML = '<div class="empty-state">No entries yet. Log your first weight above.</div>';
+    return;
+  }
+  el.innerHTML = entries.slice().reverse().map((e, ri) => {
+    const i = entries.length - 1 - ri;
+    return `<div class="entry-row">
+      <span class="date">${formatDate(e.date)}</span>
+      <span class="weight">${e.weight.toFixed(1)} lbs</span>
+      <span class="trend-val">trend ${trendValues[i].toFixed(1)}</span>
+      <button class="delete-btn" onclick="deleteEntry('${e.date}')" title="Delete">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+// --- Weekly averages ---
+function renderWeeklyAverages(trendValues) {
+  const section = document.getElementById('weeklySection');
+  const content = document.getElementById('weeklyContent');
+  if (entries.length < 2) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  // Group entries by ISO week (Monday start)
+  const weeks = [];
+  let currentWeekStart = null;
+  let currentWeek = null;
+
+  for (let i = 0; i < entries.length; i++) {
+    const d = new Date(entries[i].date + 'T00:00:00');
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((day + 6) % 7));
+    const weekKey = monday.toISOString().slice(0, 10);
+
+    if (weekKey !== currentWeekStart) {
+      currentWeekStart = weekKey;
+      currentWeek = { start: weekKey, rawWeights: [], trendWeights: [] };
+      weeks.push(currentWeek);
+    }
+    currentWeek.rawWeights.push(entries[i].weight);
+    currentWeek.trendWeights.push(trendValues[i]);
+  }
+
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const fmt = v => v.toFixed(1);
+  const sign = v => v > 0 ? '+' : '';
+  const cls = v => v > 0.05 ? 'positive' : v < -0.05 ? 'negative' : '';
+
+  let rows = '';
+  for (let i = weeks.length - 1; i >= 0; i--) {
+    const w = weeks[i];
+    const avgRaw = avg(w.rawWeights);
+    const avgTrend = avg(w.trendWeights);
+    let changeHtml = '—';
+    if (i > 0) {
+      const prevAvg = avg(weeks[i - 1].rawWeights);
+      const change = avgRaw - prevAvg;
+      changeHtml = `<span class="change ${cls(change)}">${sign(change)}${fmt(change)}</span>`;
+    }
+    rows += `<tr>
+      <td>${formatDate(w.start)}</td>
+      <td>${fmt(avgRaw)}</td>
+      <td>${fmt(avgTrend)}</td>
+      <td>${changeHtml}</td>
+    </tr>`;
+  }
+
+  content.innerHTML = `<table class="weekly-table">
+    <thead><tr><th>Week of</th><th>Avg Raw</th><th>Avg Trend</th><th>Change</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// --- Export CSV ---
+function exportCSV() {
+  if (entries.length === 0) return;
+  const trendValues = computeTrend(entries);
+  const lines = ['date,raw_weight,trend_weight'];
+  for (let i = 0; i < entries.length; i++) {
+    lines.push(`${entries[i].date},${entries[i].weight},${trendValues[i].toFixed(2)}`);
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mindfulscale_export.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  return `${parseInt(m)}/${parseInt(d)}/${y}`;
+}
+
+// --- Render all ---
+function render() {
+  const trendValues = computeTrend(entries);
+  renderDashboard(trendValues);
+  renderChart(trendValues);
+  renderEntryList(trendValues);
+  renderWeeklyAverages(trendValues);
+}
+
+// --- Init ---
+(function setToday() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  document.getElementById('dateInput').value = `${yyyy}-${mm}-${dd}`;
+})();
+
+// Goal input
+const goalInput = document.getElementById('goalInput');
+if (goalWeight !== null) goalInput.value = goalWeight;
+goalInput.addEventListener('change', () => {
+  const v = parseFloat(goalInput.value);
+  goalWeight = isNaN(v) ? null : v;
+  saveGoal(goalWeight);
+  render();
+});
+document.getElementById('goalClear').addEventListener('click', () => {
+  goalWeight = null;
+  goalInput.value = '';
+  saveGoal(null);
+  render();
+});
+
+// Form submit
+document.getElementById('entryForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const dateEl = document.getElementById('dateInput');
+  const weightEl = document.getElementById('weightInput');
+  const date = dateEl.value;
+  const weight = parseFloat(weightEl.value);
+  if (!date || isNaN(weight)) return;
+  addEntry(date, weight);
+  weightEl.value = '';
+  weightEl.focus();
+});
+
+// Timeframe tabs
+document.getElementById('timeframeTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-days]');
+  if (!btn) return;
+  document.querySelectorAll('#timeframeTabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  chartTimeframeDays = parseInt(btn.dataset.days);
+  render();
+});
+
+// Weekly toggle
+document.getElementById('weeklyToggle').addEventListener('click', () => {
+  const content = document.getElementById('weeklyContent');
+  const arrow = document.querySelector('#weeklyToggle .arrow');
+  const open = content.style.display === 'none';
+  content.style.display = open ? '' : 'none';
+  arrow.classList.toggle('open', open);
+});
+
+// Export
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+render();
+</script>
+</body>
+</html>
